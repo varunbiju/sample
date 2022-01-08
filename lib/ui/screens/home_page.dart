@@ -88,7 +88,8 @@ class _HomePageState extends State<HomePage> {
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Center(
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.share),
                     onPressed: () {
                       Share.share(
                         "Hey, have you tried BHIVE.fund?\n"
@@ -97,10 +98,6 @@ class _HomePageState extends State<HomePage> {
                         "Investing with them is fast & easy. Use my referral code to start investing: $_myReferralCode",
                       );
                     },
-                    child: const Text(
-                      "Refer a Friend!",
-                      style: TextStyle(fontSize: 18),
-                    ),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(300, 75),
                       shape: const RoundedRectangleBorder(
@@ -108,6 +105,10 @@ class _HomePageState extends State<HomePage> {
                           Radius.circular(15),
                         ),
                       ),
+                    ),
+                    label: const Text(
+                      "Refer a Friend!",
+                      style: TextStyle(fontSize: 18),
                     ),
                   ),
                 ),
