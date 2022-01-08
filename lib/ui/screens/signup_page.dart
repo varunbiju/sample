@@ -1,20 +1,25 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:loading_overlay/loading_overlay.dart';
-import 'package:sample/ui/screens/home_page.dart';
-import 'package:sample/ui/screens/signup_page.dart';
+import 'package:sample/ui/screens/login_page.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+import 'home_page.dart';
+
+class SignUpPage extends StatefulWidget {
+  const SignUpPage({Key? key}) : super(key: key);
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  _SignUpPageState createState() => _SignUpPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _SignUpPageState extends State<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _rCodeController = TextEditingController();
+  final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
   bool _isLoading = false;
 
   checkFields() {
@@ -35,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
           appBar: AppBar(
             centerTitle: true,
             title: const Text(
-              "Login",
+              "Sign Up",
               style: TextStyle(
                 color: Colors.black,
                 fontSize: 30,
@@ -124,6 +129,32 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
+                    child: TextFormField(
+                      controller: _rCodeController,
+                      textInputAction: TextInputAction.next,
+                      onFieldSubmitted: (_) =>
+                          FocusScope.of(context).nearestScope,
+                      keyboardType: TextInputType.text,
+                      validator: (value) {
+                        if (!RegExp(r'^.{0,}$').hasMatch(value!)) {
+                          return "Referral Code is Invalid";
+                        } else {
+                          return null;
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Referral Code',
+                        icon: Icon(Icons.emoji_people),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(15),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
                       onPressed: () async {
                         setState(() {
@@ -131,10 +162,30 @@ class _LoginPageState extends State<LoginPage> {
                         });
                         if (checkFields()) {
                           try {
-                            await FirebaseAuth.instance
-                                .signInWithEmailAndPassword(
-                                    email: _emailController.text,
-                                    password: _passwordController.text);
+                            await _auth.createUserWithEmailAndPassword(
+                                email: _emailController.text,
+                                password: _passwordController.text);
+                            await _firestore
+                                .collection('users')
+                                .doc(_auth.currentUser?.uid)
+                                .set({
+                              'email': _auth.currentUser?.email,
+                              'myReferralCode':
+                                  _auth.currentUser?.uid.substring(0, 5),
+                              'referralCode': _rCodeController.text,
+                            });
+                            await _firestore
+                                .collection('users')
+                                .where('myReferralCode',
+                                    isEqualTo: _rCodeController.text)
+                                .get()
+                                .then((QuerySnapshot querySnapshot) {
+                              for (var doc in querySnapshot.docs) {
+                                doc.reference
+                                    .collection('myReferrals')
+                                    .add({'email': _emailController.text});
+                              }
+                            });
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
@@ -143,17 +194,18 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             );
                           } on FirebaseAuthException catch (e) {
-                            if (e.code == 'user-not-found') {
+                            if (e.code == 'weak-password') {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content:
-                                      Text('No user found for this email.'),
+                                  content: Text(
+                                      'The password provided is too weak.'),
                                 ),
                               );
-                            } else if (e.code == 'wrong-password') {
+                            } else if (e.code == 'email-already-in-use') {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Wrong password'),
+                                  content: Text(
+                                      'An account already exists for that email.'),
                                 ),
                               );
                             } else {
@@ -163,6 +215,8 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               );
                             }
+                          } catch (e) {
+                            print(e);
                           }
                         }
                         setState(() {
@@ -170,7 +224,7 @@ class _LoginPageState extends State<LoginPage> {
                         });
                       },
                       child: const Text(
-                        "Login",
+                        "Sign Up",
                         style: TextStyle(fontSize: 18),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -194,18 +248,18 @@ class _LoginPageState extends State<LoginPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Not a User?'),
+                      const Text('Already a User?'),
                       TextButton(
                         onPressed: () {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
                               builder: (BuildContext context) =>
-                                  const SignUpPage(),
+                                  const LoginPage(),
                             ),
                           );
                         },
-                        child: const Text("Sign Up Now"),
+                        child: const Text("Login"),
                       ),
                     ],
                   ),
