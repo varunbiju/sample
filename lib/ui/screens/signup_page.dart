@@ -1,10 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:loading_overlay/loading_overlay.dart';
-import 'package:sample/ui/screens/login_page.dart';
+import 'package:sample/services/authentication.dart';
 
 import 'home_page.dart';
+import 'login_page.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({Key? key}) : super(key: key);
@@ -18,8 +17,6 @@ class _SignUpPageState extends State<SignUpPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _rCodeController = TextEditingController();
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
   bool _isLoading = false;
 
   checkFields() {
@@ -161,31 +158,11 @@ class _SignUpPageState extends State<SignUpPage> {
                           _isLoading = true;
                         });
                         if (checkFields()) {
-                          try {
-                            await _auth.createUserWithEmailAndPassword(
-                                email: _emailController.text,
-                                password: _passwordController.text);
-                            await _firestore
-                                .collection('users')
-                                .doc(_auth.currentUser?.uid)
-                                .set({
-                              'email': _auth.currentUser?.email,
-                              'myReferralCode':
-                                  _auth.currentUser?.uid.substring(0, 5),
-                              'referralCode': _rCodeController.text,
-                            });
-                            await _firestore
-                                .collection('users')
-                                .where('myReferralCode',
-                                    isEqualTo: _rCodeController.text)
-                                .get()
-                                .then((QuerySnapshot querySnapshot) {
-                              for (var doc in querySnapshot.docs) {
-                                doc.reference
-                                    .collection('myReferrals')
-                                    .add({'email': _emailController.text});
-                              }
-                            });
+                          if (await Authentication.signUp(
+                              email: _emailController.text,
+                              password: _passwordController.text,
+                              referralCode: _rCodeController.text,
+                              context: context)) {
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
@@ -193,30 +170,6 @@ class _SignUpPageState extends State<SignUpPage> {
                                     const HomePage(),
                               ),
                             );
-                          } on FirebaseAuthException catch (e) {
-                            if (e.code == 'weak-password') {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'The password provided is too weak.'),
-                                ),
-                              );
-                            } else if (e.code == 'email-already-in-use') {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'An account already exists for that email.'),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.message!),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            print(e);
                           }
                         }
                         setState(() {

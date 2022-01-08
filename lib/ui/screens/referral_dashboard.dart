@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:loading_overlay/loading_overlay.dart';
+import 'package:sample/services/authentication.dart';
+import 'package:sample/services/database.dart';
 
 class ReferralDashboard extends StatefulWidget {
   const ReferralDashboard({Key? key}) : super(key: key);
@@ -12,29 +12,27 @@ class ReferralDashboard extends StatefulWidget {
 
 class _ReferralDashboardState extends State<ReferralDashboard> {
   int referralCount = 0;
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
   List myReferralList = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   init() async {
-    await _firestore
+    setState(() {
+      _isLoading = true;
+    });
+    await Database.databaseInstance
         .collection('users')
-        .doc(_auth.currentUser?.uid)
+        .doc(Authentication.authInstance.currentUser?.uid)
         .collection('myReferrals')
         .orderBy('email')
         .get()
-        .then((QuerySnapshot querySnapshot) {
+        .then((querySnapshot) {
       referralCount = querySnapshot.size;
       for (var doc in querySnapshot.docs) {
         myReferralList.add(doc.get('email'));
       }
-    }).then((value) {
-      setState(() {
-        _isLoading = false;
-      });
-      return null;
-    });
+    }).then((value) => setState(() {
+              _isLoading = false;
+            }));
   }
 
   @override
